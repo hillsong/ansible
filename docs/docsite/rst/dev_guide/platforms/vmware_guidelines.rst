@@ -136,6 +136,10 @@ Once your configuration is ready, you can trigger a run with the following comma
 
 ``vmware_host_firewall_manager`` is the name of the module to test.
 
+``vmware_guest`` is much larger than any other test role and is rather slow. You can enable or disable some of its test playbooks in
+:file:`test/integration/targets/vmware_guest/defaults/main.yml`.
+
+
 Unit-test
 =========
 
@@ -173,6 +177,40 @@ Depending upon the functionality provided by ESXi or vCenter, some modules can s
         self.host = find_obj(self.content, [vim.HostSystem], None)
     if self.host is None:
         self.module.fail_json(msg="Failed to find host system.")
+
+Functional tests
+----------------
+
+Writing new tests
+~~~~~~~~~~~~~~~~~
+
+If you are writing a new collection of integration tests, there are a few VMware-specific things to note beyond
+the standard Ansible :ref:`integration testing<testing_integration>` process.
+
+The test-suite uses a set of common, pre-defined vars located in the :file:`test/integration/targets/prepare_vmware_tests/` role.
+The resources defined there are automatically created by importing that role at the start of your test:
+
+.. code-block:: yaml
+
+  - import_role:
+      name: prepare_vmware_tests
+    vars:
+      setup_datacenter: true
+
+This will give you a ready to use cluster, datacenter, datastores, folder, switch, dvswitch, ESXi hosts, and VMs.
+
+No need to create too much resources
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Most of the time, it's not necessary to use ``with_items`` to create multiple resources. By avoiding it,
+you speed up the test execution and you simplify the clean up afterwards.
+
+VM names should be predictable
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you need to create a new VM during your test, you can use ``test_vm1``, ``test_vm2`` or ``test_vm3``. This
+way it will be automatically clean up for you.
+
 
 Typographic convention
 ======================

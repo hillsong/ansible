@@ -105,12 +105,12 @@ options:
         version_added: "2.5"
     affinity_group_mappings:
         description:
-            - "Mapper which maps affinty name between VM's OVF and the destination affinity this VM should be registered to,
+            - "Mapper which maps affinity name between VM's OVF and the destination affinity this VM should be registered to,
                relevant when C(state) is registered."
         version_added: "2.5"
     affinity_label_mappings:
         description:
-            - "Mappper which maps affinity label name between VM's OVF and the destination label this VM should be registered to,
+            - "Mapper which maps affinity label name between VM's OVF and the destination label this VM should be registered to,
                relevant when C(state) is registered."
         version_added: "2.5"
     lun_mappings:
@@ -151,7 +151,7 @@ options:
         description:
             - Name of the storage domain where all template disks should be created.
             - This parameter is considered only when C(template) is provided.
-            - IMPORTANT - This parameter is not idempotent, if the VM exists and you specfiy different storage domain,
+            - IMPORTANT - This parameter is not idempotent, if the VM exists and you specify different storage domain,
               disk won't move.
         version_added: "2.4"
     disk_format:
@@ -274,7 +274,7 @@ options:
     host_devices:
         description:
             - Single Root I/O Virtualization - technology that allows single device to expose multiple endpoints that can be passed to VMs
-            - host_devices is an list which contain dictinary with name and state of device
+            - host_devices is an list which contain dictionary with name and state of device
         version_added: "2.7"
     delete_protected:
         description:
@@ -332,7 +332,7 @@ options:
                 description:
                     - Custom MAC address of the network interface, by default it's obtained from MAC pool.
                     - "NOTE - This parameter is used only when C(state) is I(running) or I(present) and is able to only create NICs.
-                    To manage NICs of the VM in more depth please use M(ovirt_nics) module instead."
+                    To manage NICs of the VM in more depth please use M(ovirt_nic) module instead."
     disks:
         description:
             - List of disks, which should be attached to Virtual Machine. Disk is described by following dictionary.
@@ -346,7 +346,7 @@ options:
             interface:
                 description:
                     - Interface of the disk.
-                choices: ['virtio', 'IDE']
+                choices: ['virtio', 'ide']
                 default: 'virtio'
             bootable:
                 description:
@@ -356,7 +356,7 @@ options:
                 description:
                     - I(True) if the disk should be activated, default is activated.
                     - "NOTE - This parameter is used only when C(state) is I(running) or I(present) and is able to only attach disks.
-                    To manage disks of the VM in more depth please use M(ovirt_disks) module instead."
+                    To manage disks of the VM in more depth please use M(ovirt_disk) module instead."
                 type: bool
     sysprep:
         description:
@@ -522,21 +522,25 @@ options:
         description:
             - "If I(true) C(kernel_params), C(initrd_path) and C(kernel_path) will persist in virtual machine configuration,
                if I(False) it will be used for run once."
+            - Usable with oVirt 4.3 and lower; removed in oVirt 4.4.
         type: bool
         version_added: "2.8"
     kernel_path:
         description:
             - Path to a kernel image used to boot the virtual machine.
             - Kernel image must be stored on either the ISO domain or on the host's storage.
+            - Usable with oVirt 4.3 and lower; removed in oVirt 4.4.
         version_added: "2.3"
     initrd_path:
         description:
             - Path to an initial ramdisk to be used with the kernel specified by C(kernel_path) option.
             - Ramdisk image must be stored on either the ISO domain or on the host's storage.
+            - Usable with oVirt 4.3 and lower; removed in oVirt 4.4.
         version_added: "2.3"
     kernel_params:
         description:
             - Kernel command line parameters (formatted as string) to be used with the kernel specified by C(kernel_path) option.
+            - Usable with oVirt 4.3 and lower; removed in oVirt 4.4.
         version_added: "2.3"
     instance_type:
         description:
@@ -831,11 +835,10 @@ options:
             - "VM should have snapshot specified by C(snapshot)."
             - "If C(snapshot_name) specified C(snapshot_vm) is required."
         version_added: "2.9"
-    template_cluster:
+    custom_emulated_machine:
         description:
-            - "Template cluster name. When not defined C(cluster) is used."
-            - "Allows you to create virtual machine in diffrent cluster than template cluster name."
-        version_added: "2.9"
+            - "Sets the value of the custom_emulated_machine attribute."
+        version_added: "2.10"
 
 notes:
     - If VM is in I(UNASSIGNED) or I(UNKNOWN) state before any operation, the module will fail.
@@ -1164,10 +1167,10 @@ EXAMPLES = '''
         - spice
         - vnc
 
-# Execute remote viever to VM
+# Execute remote viewer to VM
 - block:
   - name: Create a ticket for console for a running VM
-    ovirt_vms:
+    ovirt_vm:
       name: myvm
       ticket: true
       state: running
@@ -1251,6 +1254,7 @@ from ansible.module_utils.ovirt import (
     search_by_attributes,
     search_by_name,
     wait,
+    engine_supported,
 )
 
 
@@ -1270,14 +1274,12 @@ class VmsModule(BaseModule):
         template = None
         templates_service = self._connection.system_service().templates_service()
         if self.param('template'):
-            cluster = self.param('template_cluster') if self.param('template_cluster') else self.param('cluster')
+            clusters_service = self._connection.system_service().clusters_service()
+            cluster = search_by_name(clusters_service, self.param('cluster'))
+            data_center = self._connection.follow_link(cluster.data_center)
             templates = templates_service.list(
-                search='name=%s and cluster=%s' % (self.param('template'), cluster)
+                search='name=%s and datacenter=%s' % (self.param('template'), data_center.name)
             )
-            if not templates:
-                templates = templates_service.list(
-                    search='name=%s' % self.param('template')
-                )
             if self.param('template_version'):
                 templates = [
                     t for t in templates
@@ -1285,10 +1287,10 @@ class VmsModule(BaseModule):
                 ]
             if not templates:
                 raise ValueError(
-                    "Template with name '%s' and version '%s' in cluster '%s' was not found'" % (
+                    "Template with name '%s' and version '%s' in data center '%s' was not found'" % (
                         self.param('template'),
                         self.param('template_version'),
-                        cluster
+                        data_center.name
                     )
                 )
             template = sorted(templates, key=lambda t: t.version.version_number, reverse=True)[0]
@@ -1376,6 +1378,7 @@ class VmsModule(BaseModule):
             use_latest_template_version=self.param('use_latest_template_version'),
             stateless=self.param('stateless') or self.param('use_latest_template_version'),
             delete_protected=self.param('delete_protected'),
+            custom_emulated_machine=self.param('custom_emulated_machine'),
             bios=(
                 otypes.Bios(boot_menu=otypes.BootMenu(enabled=self.param('boot_menu')))
             ) if self.param('boot_menu') is not None else None,
@@ -1587,6 +1590,7 @@ class VmsModule(BaseModule):
             equal(self.param('stateless'), entity.stateless) and
             equal(self.param('cpu_shares'), entity.cpu_shares) and
             equal(self.param('delete_protected'), entity.delete_protected) and
+            equal(self.param('custom_emulated_machine'), entity.custom_emulated_machine) and
             equal(self.param('use_latest_template_version'), entity.use_latest_template_version) and
             equal(self.param('boot_devices'), [str(dev) for dev in getattr(entity.os.boot, 'devices', [])]) and
             equal(self.param('instance_type'), get_link_name(self._connection, entity.instance_type), ignore_case=True) and
@@ -1725,7 +1729,7 @@ class VmsModule(BaseModule):
         """
         This function will first wait for the status DOWN of the VM.
         Then it will find the active snapshot and wait until it's state is OK for
-        stateless VMs and statless snaphot is removed.
+        stateless VMs and stateless snapshot is removed.
         """
         vm_service = self._service.vm_service(vm.id)
         wait(
@@ -2258,6 +2262,15 @@ def import_vm(module, connection):
     return True
 
 
+def check_deprecated_params(module, connection):
+    if engine_supported(connection, '4.4') and \
+            (module.params.get('kernel_params_persist') is not None or
+             module.params.get('kernel_path') is not None or
+             module.params.get('initrd_path') is not None or
+             module.params.get('kernel_params') is not None):
+        module.warn("Parameters 'kernel_params_persist', 'kernel_path', 'initrd_path', 'kernel_params' are not supported since oVirt 4.4.")
+
+
 def control_state(vm, vms_service, module):
     if vm is None:
         return
@@ -2308,7 +2321,6 @@ def main():
         cluster=dict(type='str'),
         allow_partial_import=dict(type='bool'),
         template=dict(type='str'),
-        template_cluster=dict(type='str'),
         template_version=dict(type='int'),
         use_latest_template_version=dict(type='bool'),
         storage_domain=dict(type='str'),
@@ -2343,6 +2355,7 @@ def main():
         lease=dict(type='str'),
         stateless=dict(type='bool'),
         delete_protected=dict(type='bool'),
+        custom_emulated_machine=dict(type='str'),
         force=dict(type='bool', default=False),
         nics=dict(type='list', default=[]),
         cloud_init=dict(type='dict'),
@@ -2407,6 +2420,7 @@ def main():
         state = module.params['state']
         auth = module.params.pop('auth')
         connection = create_connection(auth)
+        check_deprecated_params(module, connection)
         vms_service = connection.system_service().vms_service()
         vms_module = VmsModule(
             connection=connection,
