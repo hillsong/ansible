@@ -26,11 +26,15 @@ from ansible.errors import AnsibleConnectionFailure
 from ansible.module_utils._text import to_text, to_bytes
 from ansible.plugins.terminal import TerminalBase
 
-
 class TerminalModule(TerminalBase):
 
     terminal_stdout_re = [
-        re.compile(br"[\r\n]+[^\s#>]+(?:[>#])$", re.M)
+        # Match a prompt like
+        # HOSTNAME>
+        # HOSTNAME<level-15>>
+        # HOSTNAME<level-15>#
+        # HOSTNAME(config)<level-15>#
+        re.compile(br"[\r\n]+[^\s#<>]+(?:\<[^\s]*\>)?(?:[>#])$", re.M)
     ]
 
     terminal_stderr_re = [
@@ -49,11 +53,12 @@ class TerminalModule(TerminalBase):
         re.compile(br"Command authorization failed")
     ]
 
-    def on_open_shell(self):
-        try:
-            self._exec_cli_command(u'terminal more disable')
-        except AnsibleConnectionFailure:
-            raise AnsibleConnectionFailure('unable to set terminal parameters')
+    # Handle the ERS's Ctrl-Y thing
+    # https://docs.ansible.com/ansible/latest/plugins/connection/network_cli.html
+    # Because these must be binary strings, I can't define them in the YAML file
+    terminal_initial_prompt = b'Enter Ctrl-Y to begin'
+    terminal_initial_answer = b'\x19'
+    terminal_inital_prompt_newline = False
 
     def on_become(self, passwd=None):
         if self._get_prompt().endswith(b'#'):
