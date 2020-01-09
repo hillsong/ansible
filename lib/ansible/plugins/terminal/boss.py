@@ -60,6 +60,12 @@ class TerminalModule(TerminalBase):
     terminal_initial_answer = b'\x19'
     terminal_inital_prompt_newline = False
 
+    def on_open_shell(self):
+        try:
+            self._exec_cli_command(u'terminal length 0')
+        except AnsibleConnectionFailure:
+            raise AnsibleConnectionFailure('unable to set terminal parameters')
+
     def on_become(self, passwd=None):
         if self._get_prompt().endswith(b'#'):
             return

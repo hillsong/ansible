@@ -61,6 +61,32 @@ class Cliconf(CliconfBase):
 
         return self.send_command(cmd)
 
+    def send_command(self, **kwargs):
+        """Executes a command over the device connection
+
+        This method will execute a command over the device connection and
+        return the results to the caller.  This method will also perform
+        logging of any commands based on the `nolog` argument.
+
+        :param command: The command to send over the connection to the device
+        :param prompt: A single regex pattern or a sequence of patterns to evaluate the expected prompt from the command
+        :param answer: The answer to respond with if the prompt is matched.
+        :param sendonly: Bool value that will send the command but not wait for a result.
+        :param newline: Bool value that will append the newline character to the command
+        :param prompt_retry_check: Bool value for trying to detect more prompts
+        :param check_all: Bool value to indicate if all the values in prompt sequence should be matched or any one of
+                          given prompt.
+        :returns: The output from the device after executing the command
+        """
+        resp = super(Cliconf, self).send_command(**kwargs)
+
+        # ERS switches send newlines over SSH as \r\r\n
+        # When network_cli.py calls _sanitize this is send through splitlines() which interprets the extra \r as
+        # another separate empty line
+        resp = resp.replace('\n\n', '\n')
+
+        return resp
+
     def get_diff(self, candidate=None, running=None, diff_match='line', diff_ignore_lines=None, path=None, diff_replace='line'):
         """
         Generate diff between candidate and running configuration. If the
