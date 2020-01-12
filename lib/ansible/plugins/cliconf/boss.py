@@ -57,6 +57,8 @@ class Cliconf(CliconfBase):
             cmd += ' '.join(to_list(flags))
             cmd = cmd.strip()
         else:
+            # TODO: this doesn't exist on ERS
+            # I can't find any way to get the startup config
             cmd = 'more /intflash/config.cfg'
 
         return self.send_command(cmd)
