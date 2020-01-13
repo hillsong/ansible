@@ -37,13 +37,13 @@ description:
     argument that will cause the module to wait for a specific condition
     before returning or timing out if the condition is not met.
   - This module does not support running commands in configuration mode.
-    Please use M(voss_config) to configure VOSS devices.
+    Please use M(boss_config) to configure BOSS devices.
 notes:
-  - Tested against VOSS 7.0.0
+  - Tested against BOSS 5.3
 options:
   commands:
     description:
-      - List of commands to send to the remote VOSS device. The
+      - List of commands to send to the remote BOSS device. The
         resulting output from the command is returned. If the
         I(wait_for) argument is provided, the module is not returned
         until the condition is satisfied or the number of retries has
@@ -88,22 +88,22 @@ options:
 EXAMPLES = r"""
 tasks:
   - name: run show sys software on remote devices
-    voss_command:
+    boss_command:
       commands: show sys software
 
-  - name: run show sys software and check to see if output contains VOSS
-    voss_command:
+  - name: run show sys software and check to see if output contains BOSS
+    boss_command:
       commands: show sys software
-      wait_for: result[0] contains VOSS
+      wait_for: result[0] contains BOSS
 
   - name: run multiple commands on remote nodes
-    voss_command:
+    boss_command:
       commands:
         - show sys software
         - show interfaces vlan
 
   - name: run multiple commands and evaluate the output
-    voss_command:
+    boss_command:
       commands:
         - show sys software
         - show interfaces vlan
@@ -112,7 +112,7 @@ tasks:
         - result[1] contains Basic
 
   - name: run command that requires answering a prompt
-    voss_command:
+    boss_command:
       commands:
         - command: 'reset'
           prompt: 'Are you sure you want to reset the switch? (y/n)'
@@ -139,7 +139,7 @@ failed_conditions:
 import re
 import time
 
-from ansible.module_utils.network.voss.voss import run_commands
+from ansible.module_utils.network.boss.boss import run_commands
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.network.common.utils import ComplexList
 from ansible.module_utils.network.common.parsing import Conditional
@@ -165,8 +165,8 @@ def parse_commands(module, warnings):
         if module.check_mode:
             if configure_type and configure_type.group(1) not in ('confirm', 'replace', 'revert', 'network'):
                 module.fail_json(
-                    msg='voss_command does not support running config mode '
-                        'commands. Please use voss_config instead'
+                    msg='boss_command does not support running config mode '
+                        'commands. Please use boss_config instead'
                 )
             if not item['command'].startswith('show'):
                 warnings.append(
